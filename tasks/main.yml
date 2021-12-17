@@ -1,0 +1,84 @@
+---
+- name: copy es rpm gpg key
+  copy: src=etc.pki.rpm-gpg.GPG-KEY-elasticsearch dest=/etc/pki/rpm-gpg/GPG-KEY-elasticsearch owner=root group=root mode=0644
+  when: not kibana_use_local_repo
+  tags: ['elasticsearch']
+
+- name: install es rpm gpg key
+  rpm_key: state=present key=/etc/pki/rpm-gpg/GPG-KEY-elasticsearch
+  when: not kibana_use_local_repo
+  tags: ['elasticsearch']
+
+- name: copy es repo file
+  template: src=etc.yum.repos.d.elasticsearch.repo.j2 dest=/etc/yum.repos.d/elasticsearch.repo owner=root group=root mode=0644
+  when: not kibana_use_local_repo
+  tags: ['elasticsearch']
+
+- name: install kibana
+  yum:
+    name: "kibana-{{ elasticsearch_clusters[es_cluster_name]['version'] }}"
+    state: present
+    disable_excludes: all
+  tags: ['kibana']
+
+- name: place the /etc/kibana/kibana.yml file
+  template:
+    src: etc.kibana.kibana.yml.j2
+    dest: /etc/kibana/kibana.yml
+    owner: kibana
+    group: kibana
+    mode: 0640
+  notify: restart kibana
+  tags: ['kibana']
+
+- name: install readonlyrest plugin
+  command: "sudo /usr/share/kibana/bin/kibana-plugin install -b -s {{ kibana_readonlyrest_url }}"
+  when: kibana_readonlyrest_enable
+  notify: restart kibana
+  tags: ['kibana','readonlyrest']
+
+- name: ensure kibana apache packages are installed
+  yum:
+    name: ['mod_ssl','mod_ldap']
+    state: present
+  when: kibana_use_apache
+  tags: ['kibana']
+
+- name: ensure kibana ssl cert is in place
+  copy: content="{{ kibana_ssl_cert }}" dest="/etc/pki/tls/certs/{{ kibana_server_name}}.crt" mode=0640 owner=root group=root
+  when: kibana_use_apache
+  tags: ['kibana','certs']
+
+- name: ensure kibana ssl chain is in place
+  copy: content="{{ kibana_ssl_chain }}" dest="/etc/pki/tls/certs/{{ kibana_server_name}}-chain.pem" mode=0640 owner=root group=root
+  when: kibana_use_apache and kibana_ssl_chain
+  tags: ['kibana','certs']
+
+- name: ensure kibana ssl key is in place
+  copy: content="{{ kibana_ssl_key }}" dest="/etc/pki/tls/private/{{ kibana_server_name}}.key" mode=0640 owner=root group=root
+  when: kibana_use_apache
+  tags: ['kibana','certs']
+
+- name: ensure that custom kibana logrotate file is placed
+  template:
+    src: etc.logrotate.d.kibana.j2
+    dest: /etc/logrotate.d/kibana
+    owner: root
+    group: root
+    mode: 0644
+  tags: ['kibana', 'logrotate']
+
+- name: place the apache config
+  template:
+    src: etc.httpd.conf.d.kibana.conf.j2
+    dest: /etc/httpd/conf.d/kibana.conf
+    owner: root
+    group: root
+    mode: 0640
+  notify: reload httpd
+  when: kibana_use_apache
+  tags: ['kibana','apache']
+
+- name: ensure kibana is enabled
+  service: name=kibana state=started enabled=true
+  tags: ['kibana']

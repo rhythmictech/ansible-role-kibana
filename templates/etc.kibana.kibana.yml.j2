@@ -1,0 +1,14 @@
+server.port: {{ kibana_server_port }}
+server.host: {{ kibana_server_host }}
+server.name: {{ kibana_server_name }}
+
+elasticsearch.hosts: ["http://{{ kibana_es_host }}:9200"]
+elasticsearch.preserveHost: false
+elasticsearch.requestTimeout: 60000
+
+{% if kibana_es_login | bool %}
+elasticsearch.username: "{{ kibana_es_username }}"
+elasticsearch.password: "{{ kibana_es_password }}"
+{% endif %}
+
+kibana.index: ".kibana"

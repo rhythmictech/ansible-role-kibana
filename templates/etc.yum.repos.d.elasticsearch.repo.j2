@@ -1,0 +1,16 @@
+#{{ ansible_managed }}
+
+[elasticsearch-{{ elasticsearch_clusters[es_cluster_name]['version']|default(elasticsearch_default_version) }}]
+name=Elasticsearch repository for {{ elasticsearch_clusters[es_cluster_name]['version']|default(elasticsearch_default_version) }} packages
+{% if elasticsearch_clusters[es_cluster_name]['version']|default(elasticsearch_default_version) is version_compare('6.0', '>=') %}
+baseurl=https://artifacts.elastic.co/packages/6.x/yum
+{% elif elasticsearch_clusters[es_cluster_name]['version']|default(elasticsearch_default_version) is version_compare('5.0', '>=') %}
+baseurl=https://artifacts.elastic.co/packages/5.x/yum
+{% elif elasticsearch_clusters[es_cluster_name]['version']|default(elasticsearch_default_version) is version_compare('2.0', '>=') %}
+baseurl=http://packages.elastic.co/elasticsearch/2.x/centos
+{% elif elasticsearch_clusters[es_cluster_name]['version']|default(elasticsearch_default_version) is version_compare('1.0', '>=') %}
+baseurl=http://packages.elastic.co/elasticsearch/1.7/centos
+{% endif %}
+gpgcheck=1
+gpgkey=file:///etc/pki/rpm-gpg/GPG-KEY-elasticsearch
+enabled=1

@@ -1,0 +1,23 @@
+---
+
+kibana_server_port: 5601
+kibana_server_host: 0.0.0.0
+
+kibana_server_name: Kibana
+
+kibana_es_host: localhost
+
+kibana_es_login: False
+kibana_es_username:
+kibana_es_password:
+
+kibana_readonlyrest_enable: False
+kibana_readonlyrest_url:
+
+kibana_admin_group: 
+
+kibana_use_apache: False
+kibana_apache_ldap_group: []
+kibana_ssl_chain:
+
+kibana_use_local_repo: True

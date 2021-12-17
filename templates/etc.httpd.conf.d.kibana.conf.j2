@@ -1,0 +1,67 @@
+# {{ ansible_managed }}
+
+LoadModule proxy_module modules/mod_proxy.so
+LoadModule proxy_http_module modules/mod_proxy_http.so
+LoadModule ldap_module modules/mod_ldap.so
+LoadModule authnz_ldap_module modules/mod_authnz_ldap.so
+LoadModule authz_user_module modules/mod_authz_user.so
+
+<VirtualHost {{ ansible_fqdn }}:443>
+
+    ServerName {{ kibana_server_name }}
+
+    # Use HTTP Strict Transport Security to force client to use secure connections only
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header always append X-Frame-Options SAMEORIGIN
+
+    SSLEngine on
+    SSLProtocol +ALL -sslv3 -sslv2
+    SSLInsecureRenegotiation Off
+    SSLCipherSuite ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA:ECDHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA256:DHE-RSA-AES128-SHA256:DHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:ECDHE-RSA-DES-CBC3-SHA:EDH-RSA-DES-CBC3-SHA:AES256-GCM-SHA384:AES128-GCM-SHA256:AES256-SHA256:AES128-SHA256:AES256-SHA:AES128-SHA:DES-CBC3-SHA:HIGH:!aNULL:!eNULL:!EXPORT:!DES:!MD5:!PSK:!RC4
+
+
+    SSLCertificateFile /etc/pki/tls/certs/{{ kibana_server_name }}.crt
+    SSLCertificateKeyFile /etc/pki/tls/private/{{ kibana_server_name }}.key
+{% if kibana_ssl_chain %}
+    SSLCertificateChainFile /etc/pki/tls/certs/{{ kibana_server_name }}-chain.pem
+{% endif %}
+
+    SetEnvIf User-Agent ".*MSIE.*" \
+        nokeepalive ssl-unclean-shutdown \
+        downgrade-1.0 force-response-1.0
+
+    ErrorLog /var/log/httpd/error_log
+    CustomLog /var/log/httpd/access_log combined
+
+    DocumentRoot /var/www/html
+
+    DirectoryIndex /app/kibana
+
+    RewriteEngine on
+
+    <Directory "/var/www/html">
+        Order allow,deny
+        Allow from all
+        AllowOverride None
+    </Directory>
+
+    <Location "/">
+
+      Order deny,allow
+      Deny from all
+      AuthBasicProvider ldap
+      AuthType Basic
+      AuthName "{{ company }} Log Search"
+      AuthLDAPURL "ldaps://{{ global_ldap_fqdn }}:636/ou=Users,{{ global_ldap_search_base }}?uid?sub?(objectClass=inetorgperson)" NONE
+      AuthLDAPBindDN "{{ global_ldap_bind_dn }}"
+      AuthLDAPBindPassword "{{ global_ldap_bind_pw }}"
+{% for group in kibana_apache_ldap_groups %}
+      Require ldap-group cn={{ group }},ou=Groups,{{ global_ldap_search_base }}
+{% endfor %}
+      Satisfy any
+
+      ProxyPass http://127.0.0.1:5601/
+      ProxyPassReverse http://127.0.0.1:5601/
+    </Location>
+
+</VirtualHost>
